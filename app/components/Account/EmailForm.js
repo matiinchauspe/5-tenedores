@@ -1,0 +1,125 @@
+import React, { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { Input, Button } from "react-native-elements";
+import * as firebase from "firebase";
+
+import { validateEmail } from "../../utils/validations";
+import { reauthenticate } from "../../utils/api";
+
+const EmailForm = ({ email, toggleModal, toastRef, setReloadUserInfo }) => {
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+
+  const onSubmit = () => {
+    setErrors({});
+    if (!formData.email || email === formData.email) {
+      setErrors({
+        email: "El email no ha cambiado",
+      });
+    } else if (!validateEmail(formData.email)) {
+      setErrors({
+        email: "Email incorrecto",
+      });
+    } else if (!formData.password) {
+      setErrors({
+        password: "Contraseña necesaria",
+      });
+    } else {
+      setIsLoading(true);
+      reauthenticate(formData.password)
+        .then(() => {
+          firebase
+            .auth()
+            .currentUser.updateEmail(formData.email)
+            .then(() => {
+              setIsLoading(false);
+              setReloadUserInfo(true);
+              toastRef.current.show("Email actualizado correctamente");
+              toggleModal(false);
+            })
+            .catch(() => {
+              setErrors({
+                email: "Error al actualizar el email",
+              });
+              setIsLoading(false);
+            });
+        })
+        .catch(() => {
+          setIsLoading(false);
+          setErrors({
+            password: "La contraseña no es correcta",
+          });
+        });
+    }
+  };
+
+  const onChange = (value, type) => {
+    setFormData({
+      ...formData,
+      [type]: value,
+    });
+  };
+
+  return (
+    <View style={styles.view}>
+      <Input
+        placeholder="Correo electrónico"
+        containerStyle={styles.input}
+        defaultValue={email || ""}
+        rightIcon={{
+          type: "material-community",
+          name: "at",
+          color: "#c2c2c2",
+        }}
+        onChange={(e) => onChange(e.nativeEvent.text, "email")}
+        errorMessage={errors.email}
+      />
+      <Input
+        placeholder="Contraseña"
+        containerStyle={styles.input}
+        password
+        secureTextEntry={showPassword ? false : true}
+        rightIcon={{
+          type: "material-community",
+          name: showPassword ? "eye-off-outline" : "eye-outline",
+          color: "#c2c2c2",
+          onPress: () => setShowPassword(!showPassword),
+        }}
+        onChange={(e) => onChange(e.nativeEvent.text, "password")}
+        errorMessage={errors.password}
+      />
+      <Button
+        title="Cambiar email"
+        containerStyle={styles.btnContainer}
+        buttonStyle={styles.btn}
+        onPress={onSubmit}
+        loading={isLoading}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  view: {
+    alignItems: "center",
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  input: {
+    marginBottom: 10,
+  },
+  btnContainer: {
+    marginTop: 20,
+    width: "95%",
+  },
+  btn: {
+    backgroundColor: "#00a680",
+  },
+});
+
+export default EmailForm;
